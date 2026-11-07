@@ -1,0 +1,6 @@
+{
+  "name": "Luke Chess Coach",
+  "description": "A friendly chess mentor that teaches beginners how to master strategy, avoid blunders, and level up through Beginner, Intermediate, and Master Elo milestones.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
