@@ -10,7 +10,7 @@ const PIECE_VALUES: Record<string, number> = {
   k: 20000,
 };
 
-// Simplified piece-square bonus tables for basic positional awareness
+// Piece-square bonus tables (indexed 0..63 where 0 is a8, 63 is h1)
 const PAWN_TABLE = [
   0,  0,  0,  0,  0,  0,  0,  0,
   50, 50, 50, 50, 50, 50, 50, 50,
@@ -47,9 +47,9 @@ function evaluateBoard(game: Chess): number {
       const idx = r * 8 + c;
 
       if (piece.type === 'p') {
-        positionalVal = piece.color === 'w' ? PAWN_TABLE[idx] : PAWN_TABLE[63 - idx];
+        positionalVal = piece.color === 'w' ? PAWN_TABLE[63 - idx] : PAWN_TABLE[idx];
       } else if (piece.type === 'n') {
-        positionalVal = piece.color === 'w' ? KNIGHT_TABLE[idx] : KNIGHT_TABLE[63 - idx];
+        positionalVal = piece.color === 'w' ? KNIGHT_TABLE[63 - idx] : KNIGHT_TABLE[idx];
       }
 
       const totalVal = baseVal + positionalVal;
@@ -64,43 +64,72 @@ function evaluateBoard(game: Chess): number {
   return score;
 }
 
+// Safety check: Does this move directly allow opponent to play checkmate on next ply?
+function allowsDirectMate(game: Chess, move: Move): boolean {
+  try {
+    game.move(move);
+    const opponentMoves = game.moves({ verbose: true });
+    let canMate = false;
+    for (const oppMove of opponentMoves) {
+      if (oppMove.san.includes('#')) {
+        canMate = true;
+        break;
+      }
+    }
+    game.undo();
+    return canMate;
+  } catch {
+    return false;
+  }
+}
+
 export function pickLukeMove(game: Chess, levelId: string): Move | null {
   const legalMoves = game.moves({ verbose: true });
   if (legalMoves.length === 0) return null;
 
   const isBlackTurn = game.turn() === 'b';
 
-  // 1. Gentle Coach (~500 Elo)
-  // Plays mostly natural moves, prioritizes developing pawns/knights, 25% chance of random move
+  // Filter out moves that suicide into mate-in-1 if better legal moves exist
+  const safeMoves = legalMoves.filter((m) => !allowsDirectMate(game, m));
+  const candidatePool = safeMoves.length > 0 ? safeMoves : legalMoves;
+
+  // 1. Gentle Guide (~500 Elo)
+  // Forgiving, natural beginner play. Develops pawns and minor pieces.
   if (levelId === 'gentle') {
-    // Check if there is a safe capture or simple central move
-    const captureMoves = legalMoves.filter((m) => m.captured && m.captured !== 'p');
-    if (captureMoves.length > 0 && Math.random() < 0.6) {
+    // Avoid blunder: if there's a free capture, take it 50% of the time
+    const captureMoves = candidatePool.filter((m) => m.captured && m.captured !== 'p');
+    if (captureMoves.length > 0 && Math.random() < 0.5) {
       return captureMoves[Math.floor(Math.random() * captureMoves.length)];
     }
 
-    // Prefer developing knights or central pawns
-    const devMoves = legalMoves.filter(
+    // Prefer developing knights, bishops, or pushing center pawns
+    const naturalMoves = candidatePool.filter(
       (m) =>
         ['n', 'b', 'p'].includes(m.piece) &&
-        ['d5', 'e5', 'c6', 'f6', 'd6', 'e6', 'c5', 'Nf6', 'Nc6'].some((sq) => m.to === sq || m.san.includes(sq))
+        ['d5', 'e5', 'c6', 'f6', 'd6', 'e6', 'c5', 'Nf6', 'Nc6', 'Be7', 'Bc5'].some(
+          (sq) => m.to === sq || m.san.includes(sq)
+        )
     );
-    if (devMoves.length > 0 && Math.random() < 0.7) {
-      return devMoves[Math.floor(Math.random() * devMoves.length)];
+    if (naturalMoves.length > 0 && Math.random() < 0.7) {
+      return naturalMoves[Math.floor(Math.random() * naturalMoves.length)];
     }
 
-    return legalMoves[Math.floor(Math.random() * legalMoves.length)];
+    return candidatePool[Math.floor(Math.random() * candidatePool.length)];
   }
 
-  // 2. Friendly Sparring Partner (~850 Elo)
-  // Castles if available, takes free pieces, avoids hanging queen
-  if (levelId === 'friendly') {
-    // Castle if legal
-    const castleMove = legalMoves.find((m) => m.san.includes('O-O'));
-    if (castleMove && Math.random() < 0.8) return castleMove;
+  // 2. Novice Coach (~950 Elo)
+  // Castles early, takes undefended pieces, avoids blundering queen
+  if (levelId === 'novice' || levelId === 'friendly') {
+    // Priority 1: Checkmate if available!
+    const mateMove = candidatePool.find((m) => m.san.includes('#'));
+    if (mateMove) return mateMove;
 
-    // Capture pieces if advantageous
-    const safeCaptures = legalMoves
+    // Priority 2: Castle if available
+    const castleMove = candidatePool.find((m) => m.san.includes('O-O'));
+    if (castleMove && Math.random() < 0.85) return castleMove;
+
+    // Priority 3: Captures
+    const safeCaptures = candidatePool
       .filter((m) => Boolean(m.captured))
       .sort((a, b) => (PIECE_VALUES[b.captured || 'p'] || 0) - (PIECE_VALUES[a.captured || 'p'] || 0));
 
@@ -108,11 +137,11 @@ export function pickLukeMove(game: Chess, levelId: string): Move | null {
       return safeCaptures[0];
     }
 
-    // Score moves with 1-ply eval
-    let bestMove = legalMoves[0];
+    // 1-ply evaluation for best positional move
+    let bestMove = candidatePool[0];
     let bestScore = isBlackTurn ? Infinity : -Infinity;
 
-    for (const move of legalMoves) {
+    for (const move of candidatePool) {
       game.move(move);
       const score = evaluateBoard(game);
       game.undo();
@@ -132,17 +161,17 @@ export function pickLukeMove(game: Chess, levelId: string): Move | null {
     return bestMove;
   }
 
-  // 3. Strategist Luke (~1250 Elo) & Master Luke (~1700 Elo)
-  // Minimax with alpha-beta search
+  // 3. Strategist Luke (~1350 Elo) & Master Luke (~1750 Elo)
+  // Multi-ply minimax search with alpha-beta pruning
   const depth = levelId === 'master' ? 3 : 2;
 
-  let bestMove = legalMoves[0];
+  let bestMove = candidatePool[0];
   let bestScore = isBlackTurn ? Infinity : -Infinity;
   const alpha = -Infinity;
   const beta = Infinity;
 
-  // Shuffle legal moves slightly so games have variety
-  const shuffledMoves = [...legalMoves].sort(() => 0.5 - Math.random());
+  // Shuffle candidate moves for organic game variation
+  const shuffledMoves = [...candidatePool].sort(() => 0.5 - Math.random());
 
   for (const move of shuffledMoves) {
     game.move(move);

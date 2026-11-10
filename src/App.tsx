@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Chess, Square } from 'chess.js';
 import { ChessBoard } from './components/ChessBoard.tsx';
 import { CoachPanel } from './components/CoachPanel.tsx';
@@ -18,21 +18,20 @@ import {
   MessageSquare,
   Award,
   ShieldCheck,
+  ArrowLeftRight,
+  Copy,
+  Check,
 } from 'lucide-react';
 
 type TabView = 'PLAY' | 'LESSONS' | 'PUZZLES' | 'LADDER';
 
 const INITIAL_COACH_FEEDBACK: CoachFeedback = {
-  theMove: 'Ready to Play (White to move)',
+  theMove: 'Ready to Play',
   strategicInsight:
     'Controlling the high ground! In the opening, claiming the four center squares (e4, d4, e5, d5) lets your pieces coordinate easily across the entire board.',
-  microChallenge: 'Which move claims the central high ground right on move 1?',
+  microChallenge: 'Which central pawn do you want to push to claim the high ground?',
   challengeOptions: ['e4 (King pawn forward two squares)', 'd4 (Queen pawn forward two squares)', 'h4 (Edge pawn move)'],
   correctOptionIndex: 0,
-  visualArrows: [
-    { from: 'e2', to: 'e4', color: 'emerald' },
-    { from: 'd2', to: 'd4', color: 'emerald' },
-  ],
 };
 
 export default function App() {
@@ -53,13 +52,17 @@ export default function App() {
 
   // Game State
   const [game, setGame] = useState(() => new Chess());
-  const [playerColor] = useState<'w' | 'b'>('w');
+  const [playerColor, setPlayerColor] = useState<'w' | 'b'>('w');
   const [selectedCoachLevel, setSelectedCoachLevel] = useState<CoachLevel>(COACH_LEVELS[0]);
   const [lastMove, setLastMove] = useState<{ from: Square; to: Square } | null>(null);
   const [moveHistory, setMoveHistory] = useState<string[]>([]);
   const [isLukeThinking, setIsLukeThinking] = useState(false);
   const [coachVisionEnabled, setCoachVisionEnabled] = useState(false);
   const [hintHighlight, setHintHighlight] = useState<{ from: Square; to?: Square } | null>(null);
+  const [isCopiedPgn, setIsCopiedPgn] = useState(false);
+
+  // Request ID sequence ref to prevent async race conditions
+  const feedbackSeqRef = useRef<number>(0);
 
   // Structured 3-Part Feedback from Luke
   const [coachFeedback, setCoachFeedback] = useState<CoachFeedback>(INITIAL_COACH_FEEDBACK);
@@ -106,7 +109,7 @@ export default function App() {
   const isPlayerTurn = game.turn() === playerColor && !game.isGameOver();
 
   // Reset or start new game
-  const handleStartNewGame = () => {
+  const handleStartNewGame = (chosenColor: 'w' | 'b' = playerColor) => {
     const newG = new Chess();
     setGame(newG);
     setLastMove(null);
@@ -115,15 +118,39 @@ export default function App() {
     setCapturedByBlack([]);
     setHintHighlight(null);
     setIsLukeThinking(false);
-    setCoachFeedback(INITIAL_COACH_FEEDBACK);
+
+    if (chosenColor === 'b') {
+      setCoachFeedback({
+        theMove: 'Game Ready (You are Black)',
+        strategicInsight: 'Luke plays White! Watch how he develops his pawns to contest the central high ground.',
+        microChallenge: 'How should Black respond to 1. e4 or 1. d4?',
+        challengeOptions: ['Contest the center with e5 or d5', 'Push an edge pawn', 'Move King immediately'],
+        correctOptionIndex: 0,
+      });
+
+      // Luke makes opening move as White
+      setIsLukeThinking(true);
+      setTimeout(() => {
+        executeLukeMove(newG);
+      }, 600);
+    } else {
+      setCoachFeedback(INITIAL_COACH_FEEDBACK);
+    }
+  };
+
+  // Flip sides (White <-> Black)
+  const handleToggleColor = () => {
+    const nextColor = playerColor === 'w' ? 'b' : 'w';
+    setPlayerColor(nextColor);
+    handleStartNewGame(nextColor);
   };
 
   // Check Game Over status
   const checkGameOverStatus = (currentGame: Chess) => {
     if (currentGame.isCheckmate()) {
-      const isUserWin = currentGame.turn() === 'b';
+      const isUserWin = currentGame.turn() !== playerColor;
       setCoachFeedback({
-        theMove: isUserWin ? 'Checkmate (Victory!)' : 'Checkmate (Game Concluded)',
+        theMove: isUserWin ? 'Checkmate! (Victory)' : 'Checkmate! (Game Concluded)',
         strategicInsight: isUserWin
           ? 'Magnificent finish! Your team coordination and piece pressure broke through the opponent’s defenses.'
           : 'Checkmate! Never be discouraged—every checkmate is the absolute fastest way to build pattern recognition.',
@@ -158,7 +185,7 @@ export default function App() {
     return false;
   };
 
-  // Request Coach Feedback from API with strict 3-part layout
+  // Request Coach Feedback from API with sequence counter to prevent race conditions
   const requestCoachFeedback = async (
     fen: string,
     moveSan: string,
@@ -166,8 +193,9 @@ export default function App() {
     captured?: string,
     isCheck?: boolean
   ) => {
+    const reqId = ++feedbackSeqRef.current;
+
     try {
-      // Check for simple blunder: does opponent have an immediate capture on the moved piece?
       const res = await fetch('/api/coach/feedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -183,7 +211,7 @@ export default function App() {
         }),
       });
       const data: CoachFeedback = await res.json();
-      if (data.theMove) {
+      if (reqId === feedbackSeqRef.current && data.theMove) {
         setCoachFeedback(data);
       }
     } catch {
@@ -211,7 +239,11 @@ export default function App() {
     setMoveHistory(newHistory);
 
     if (captured) {
-      setCapturedByWhite((prev) => [...prev, captured]);
+      if (playerColor === 'w') {
+        setCapturedByWhite((prev) => [...prev, captured]);
+      } else {
+        setCapturedByBlack((prev) => [...prev, captured]);
+      }
     }
 
     const nextGame = new Chess(game.fen());
@@ -250,7 +282,11 @@ export default function App() {
         }
 
         if (moveObj.captured) {
-          setCapturedByBlack((prev) => [...prev, moveObj.captured!]);
+          if (playerColor === 'w') {
+            setCapturedByBlack((prev) => [...prev, moveObj.captured!]);
+          } else {
+            setCapturedByWhite((prev) => [...prev, moveObj.captured!]);
+          }
         }
 
         setLastMove({ from: moveObj.from, to: moveObj.to });
@@ -306,7 +342,6 @@ export default function App() {
         microChallenge: data.microChallenge || 'Which piece is best positioned to claim the high ground?',
         challengeOptions: data.challengeOptions || ['Center Knight / Pawn', 'Solo Queen move', 'Rook on edge'],
         correctOptionIndex: data.correctOptionIndex ?? 0,
-        visualArrows: [{ from: candidate.from, to: candidate.to, color: 'amber' }],
       });
     } catch {
       setCoachFeedback({
@@ -343,11 +378,20 @@ export default function App() {
     }
   };
 
+  // Copy PGN
+  const handleCopyPgn = () => {
+    try {
+      navigator.clipboard.writeText(game.pgn() || moveHistory.join(' '));
+      setIsCopiedPgn(true);
+      setTimeout(() => setIsCopiedPgn(false), 2000);
+    } catch {}
+  };
+
   return (
     <div className="min-h-screen bg-stone-100 dark:bg-stone-950 text-stone-900 dark:text-stone-100 flex flex-col font-sans transition-colors duration-200">
       {/* Top Bar Contract: Brand Wordmark - 4 concise nav links - 1 Primary Action */}
       <header className="flex items-center justify-between gap-8 px-6 py-4 bg-white dark:bg-stone-900 border-b border-stone-200 dark:border-stone-800 sticky top-0 z-40 shadow-xs">
-        {/* Brand Wordmark (Single text element) */}
+        {/* Brand Wordmark */}
         <a
           href="/"
           className="text-lg font-bold tracking-tight text-stone-900 dark:text-stone-100 whitespace-nowrap shrink-0 font-display flex items-center gap-2"
@@ -490,15 +534,35 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Action Buttons */}
-              <div className="flex items-center gap-2 w-full md:w-auto">
+              {/* Action Buttons: Color Flip, New Match, Review, PGN */}
+              <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
                 <button
-                  onClick={handleStartNewGame}
-                  className="flex-1 md:flex-initial flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-200 transition-colors"
+                  onClick={handleToggleColor}
+                  className="flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-200 transition-colors"
+                  title="Switch sides between White and Black"
+                >
+                  <ArrowLeftRight className="w-3.5 h-3.5" />
+                  <span>Play as {playerColor === 'w' ? 'Black' : 'White'}</span>
+                </button>
+
+                <button
+                  onClick={() => handleStartNewGame()}
+                  className="flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-200 transition-colors"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
                   <span>New Match</span>
                 </button>
+
+                <button
+                  onClick={handleCopyPgn}
+                  disabled={moveHistory.length === 0}
+                  className="flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 transition-colors disabled:opacity-40"
+                  title="Copy PGN notation"
+                >
+                  {isCopiedPgn ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{isCopiedPgn ? 'Copied' : 'PGN'}</span>
+                </button>
+
                 <button
                   onClick={() =>
                     setReviewModalState({
@@ -507,7 +571,7 @@ export default function App() {
                     })
                   }
                   disabled={moveHistory.length === 0}
-                  className="flex-1 md:flex-initial flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 hover:bg-amber-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 hover:bg-amber-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <Award className="w-3.5 h-3.5" />
                   <span>Review Game</span>
@@ -527,7 +591,6 @@ export default function App() {
                   lastMove={lastMove}
                   coachVisionEnabled={coachVisionEnabled}
                   hintHighlight={hintHighlight}
-                  visualArrows={coachFeedback.visualArrows}
                 />
 
                 {/* Move History Strip */}
@@ -540,8 +603,8 @@ export default function App() {
                       {isLukeThinking
                         ? "Luke is pondering his response..."
                         : isPlayerTurn
-                        ? "Your turn (White)"
-                        : "Luke's turn (Black)"}
+                        ? `Your turn (${playerColor === 'w' ? 'White' : 'Black'})`
+                        : `Luke's turn (${playerColor === 'w' ? 'Black' : 'White'})`}
                     </span>
                   </div>
                   <div className="flex flex-wrap gap-1.5 max-h-20 overflow-y-auto text-xs font-mono">
@@ -659,7 +722,7 @@ export default function App() {
         moveHistory={moveHistory}
         userElo={userElo}
         userColor={playerColor}
-        onPlayAgain={handleStartNewGame}
+        onPlayAgain={() => handleStartNewGame()}
       />
     </div>
   );

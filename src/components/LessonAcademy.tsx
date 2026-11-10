@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Chess, Square } from 'chess.js';
 import { ChessBoard } from './ChessBoard.tsx';
-import { Lesson } from '../types.ts';
+import { Lesson, VisualArrow } from '../types.ts';
 import { CheckCircle2, Sparkles, BookOpen, ChevronRight, RotateCcw } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { sounds } from '../audio.ts';
@@ -18,21 +18,22 @@ const LESSONS: Lesson[] = [
     targetElo: '400 - 600 Elo',
     category: 'Opening Principles',
     analogy:
-      'Imagine a busy city with a grand town square in the middle. Whoever controls the town square can quickly send helpers to any neighborhood!',
+      'Think of the 4 center squares like holding the high ground on a hill. Whoever holds the high ground has the clearest view and easiest paths in every direction!',
     introText:
-      'In chess, the four squares in the very center (e4, d4, e5, d5) control the flow of the entire game. Plant your king’s pawn forward two squares to claim the territory.',
+      'In chess, the four squares in the very center (e4, d4, e5, d5) control the flow of the entire battle. Plant your King’s pawn forward two squares to claim the high ground.',
     initialFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
     playerColor: 'w',
     solutionMoves: ['e4'],
     hints: [
-      'Look at the pawn standing in front of your King (square e2).',
+      'Look at the pawn standing right in front of your King (square e2).',
       'Pawns can leap two squares forward on their very first move!',
       'Play the move: e2 to e4.',
     ],
     successMessage:
-      'Brilliant! You claimed the e4 center square, opened up lines for your queen and bishop, and took the initiative!',
+      'Brilliant! You claimed the e4 center square, opened up lines for your Queen and Bishop, and seized the high ground!',
     explanation:
       'By placing your pawn on e4, you control d5 and f5. Your light-squared bishop and queen are now free to enter the battle.',
+    visualArrows: [{ from: 'e2', to: 'e4', color: 'emerald' }],
   },
   {
     id: 'lesson-fork',
@@ -41,22 +42,26 @@ const LESSONS: Lesson[] = [
     targetElo: '500 - 750 Elo',
     category: 'Basic Tactics',
     analogy:
-      'A fork is like ordering a combo meal where your opponent must give you one of their items because they cannot protect both at the same time!',
+      'A fork is like ordering a combo meal where your opponent must surrender one of their pieces because they cannot protect both at the same time!',
     introText:
-      'Knights are the only pieces that can jump over other pieces. In this position, find the jumping square where your White Knight attacks Black’s King AND Black’s Rook simultaneously!',
-    // Position where Nc7+ is a royal fork against King on e8 and Rook on a8
-    initialFen: 'r3k3/8/8/8/4N3/8/8/4K3 w - - 0 1',
+      'Knights are the only pieces that jump over others in an L-shape. In this position, leap your Knight from d5 to c7 to deliver check to Black’s King while attacking the Rook on a8!',
+    initialFen: 'r3k3/8/8/3N4/8/8/8/4K3 w - - 0 1',
     playerColor: 'w',
     solutionMoves: ['Nc7+'],
     hints: [
-      'Your knight on e4 can hop to several squares.',
-      'Look at c7: it puts Black’s King in check while eyeing the rook on a8!',
-      'Jump your knight from e4 to c7.',
+      'Look at your Knight on d5.',
+      'Hop the Knight to c7: it puts Black’s King in check while threatening the Rook on a8!',
+      'Play the move: Knight from d5 to c7.',
     ],
     successMessage:
-      'Check! A classic Knight Fork! The black king MUST move, leaving the defenseless rook on a8 for you to capture on the next move!',
+      'Check! A devastating Knight Fork! The Black King must step away, leaving the Rook on a8 free for you to capture next move!',
     explanation:
-      'Because knights jump in unpredictable L-shapes, forks are a beginner’s secret superpower. Always scan where your knight can hit two high-value pieces.',
+      'Because knights jump in L-shapes, forks are a beginner’s secret superpower. Always scan for squares where your knight can hit two high-value pieces.',
+    visualArrows: [
+      { from: 'd5', to: 'c7', color: 'amber' },
+      { from: 'c7', to: 'e8', color: 'rose' },
+      { from: 'c7', to: 'a8', color: 'rose' },
+    ],
   },
   {
     id: 'lesson-castle',
@@ -65,22 +70,22 @@ const LESSONS: Lesson[] = [
     targetElo: '600 - 800 Elo',
     category: 'King Safety',
     analogy:
-      'Would you leave the president standing in the middle of a soccer field during a heavy storm? No way—tuck him safely into the VIP shelter!',
+      'Would you leave the president standing in the middle of a soccer field during a thunderstorm? No way—tuck him safely into the VIP shelter before the battle begins!',
     introText:
-      'Castling is the only move in chess where two pieces move at the same time: your King slides two squares toward the corner, and the Rook hops right over him.',
-    // White ready to castle kingside
+      'Castling is the only move in chess where two pieces move at once: your King slides two squares toward the corner, and the Rook hops over him to join the fight.',
     initialFen: 'rnbqk2r/pppp1ppp/5n2/2b1p3/4P3/5N2/PPPPBPPP/RNBQK2R w KQkq - 4 4',
     playerColor: 'w',
     solutionMoves: ['O-O'],
     hints: [
-      'The path between your King (e1) and Kingside Rook (h1) is clear!',
+      'The path between your King (e1) and your Rook (h1) is completely clear!',
       'Click your King on e1, then click the square g1.',
-      'Castle Kingside: Move King from e1 to g1.',
+      'Castle Kingside: Move your King from e1 to g1.',
     ],
     successMessage:
-      'Splendid! Your King is securely sheltered behind a wall of pawns, and your rook is activated to help control the open e-file.',
+      'Splendid! Your King is securely sheltered behind a wall of pawns, and your Rook is activated to contest the center.',
     explanation:
-      'Beginners who castle before move 10 win significantly more games because sudden checkmates along the center files become almost impossible.',
+      'Beginners who castle before move 10 win significantly more games because surprise checkmates down the center files become almost impossible.',
+    visualArrows: [{ from: 'e1', to: 'g1', color: 'emerald' }],
   },
   {
     id: 'lesson-pin',
@@ -89,22 +94,22 @@ const LESSONS: Lesson[] = [
     targetElo: '700 - 900 Elo',
     category: 'Intermediate Tactics',
     analogy:
-      'Imagine a bodyguard standing directly in front of the president. If the bodyguard moves out of the way, the president gets hit!',
+      'Imagine a bodyguard frozen in place. If the bodyguard steps aside, the VIP behind them takes the hit! That piece is completely immobilized.',
     introText:
-      'A pin occurs when an attacking piece threatens an enemy piece that cannot move without exposing an even more valuable piece behind it. Pin Black’s knight to their King using your bishop!',
-    // White bishop on f1, black knight on f6, black king on e8, black pawn on d7
-    initialFen: '4k3/4r3/5n2/8/8/8/8/4KB2 w - - 0 1',
+      'A pin occurs when an attacking piece threatens an enemy piece that cannot move without exposing an even more valuable piece behind it. Move your Bishop to b5 to pin Black’s Knight to their King!',
+    initialFen: 'r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3',
     playerColor: 'w',
     solutionMoves: ['Bb5'],
     hints: [
-      'Look at your light-squared bishop on f1.',
-      'Look along the diagonal toward the enemy rook on e7.',
-      'Actually, move your bishop to b5 to deliver check or pin the defender!',
+      'Look at your light-squared Bishop resting on f1.',
+      'Slide the Bishop up the diagonal to square b5.',
+      'From b5, your Bishop points directly through the c6 Knight to the e8 King!',
     ],
     successMessage:
-      'Excellently played! Pins restrict the opponent’s freedom and force them into passive defense.',
+      'Excellently played! That is the famous Ruy Lopez pin. The c6 Knight is paralyzed because moving it would expose their King to check!',
     explanation:
-      'Whenever you see an opponent piece aligned on the same diagonal or file with their King or Queen, look for a sliding piece to pin it!',
+      'Whenever you notice an enemy piece lined up on the same diagonal or file as their King or Queen, look for a sliding Bishop or Rook to pin it.',
+    visualArrows: [{ from: 'f1', to: 'b5', color: 'emerald' }],
   },
   {
     id: 'lesson-blunder-scan',
@@ -113,21 +118,22 @@ const LESSONS: Lesson[] = [
     targetElo: '400 - 700 Elo',
     category: 'Habit & Mindset',
     analogy:
-      'Like looking both ways before crossing the street: 1 second left, 1 second right, 1 second forward. Simple habit, saves lives!',
+      'Like looking both ways before crossing the road: 1 second left, 1 second right, 1 second forward. A simple 3-second habit that wins matches!',
     introText:
-      'Black just played a move and attacked your undefended Knight on c4. Instead of rushing to attack, spot the threat and bring your knight to a safe, defended square.',
+      'Black just pushed their pawn to d5, attacking your undefended Knight on c4! Instead of rushing forward, spot the danger and retreat your Knight to a safe, protected square.',
     initialFen: 'rnbqkbnr/ppp1pppp/8/3p4/2N1P3/8/PPPP1PPP/RNBQKB1R w KQkq - 0 2',
     playerColor: 'w',
     solutionMoves: ['Ne3', 'Na3', 'Nf3'],
     hints: [
-      'Black’s pawn on d5 is attacking your knight on c4!',
-      'If you do nothing, Black takes your knight for free next move.',
-      'Retreat your knight to safety (e.g. e3 or a3).',
+      'Black’s pawn on d5 is pointing its spear directly at your Knight on c4!',
+      'If you ignore it, Black captures your Knight for free on the next move.',
+      'Retreat your Knight to a safe square like e3 or a3.',
     ],
     successMessage:
-      'Safe and sound! You recognized the danger, kept your army intact, and denied your opponent free material.',
+      'Safe and sound! You spotted the threat, kept your army intact, and denied your opponent free material.',
     explanation:
-      'At the beginner level, the player who gives away fewer free pieces wins almost every single match. Build the 3-second pause into your DNA!',
+      'At the beginner level, the player who avoids giving away free pieces wins 9 out of 10 matches. Always pause 3 seconds to scan for undefended teammates!',
+    visualArrows: [{ from: 'c4', to: 'e3', color: 'emerald' }],
   },
 ];
 
@@ -155,7 +161,6 @@ export const LessonAcademy: React.FC<LessonAcademyProps> = ({ onEarnElo }) => {
   };
 
   const handleMove = ({ san }: { san: string }) => {
-    // Check if move matches solution moves
     const isSolution = activeLesson.solutionMoves.some(
       (sol) => sol === san || sol.replace('+', '') === san.replace('+', '')
     );
@@ -164,20 +169,18 @@ export const LessonAcademy: React.FC<LessonAcademyProps> = ({ onEarnElo }) => {
       setFeedbackStatus('success');
       sounds.playVictory();
 
-      // Trigger celebratory confetti
       confetti({
-        particleCount: 40,
-        spread: 60,
+        particleCount: 45,
+        spread: 65,
         origin: { y: 0.6 },
       });
 
       if (!completedLessons.has(activeLesson.id)) {
         setCompletedLessons((prev) => new Set([...prev, activeLesson.id]));
-        onEarnElo(25); // Award rating points
+        onEarnElo(25);
       }
     } else {
       setFeedbackStatus('incorrect');
-      // Reset board after a brief delay so student can try again
       setTimeout(() => {
         setGame(new Chess(activeLesson.initialFen));
       }, 1000);
@@ -248,7 +251,6 @@ export const LessonAcademy: React.FC<LessonAcademyProps> = ({ onEarnElo }) => {
 
         {/* Interactive Lesson Stage */}
         <div className="lg:col-span-8 bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl p-5 shadow-xs space-y-5">
-          {/* Lesson Header */}
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="flex items-center gap-2 mb-1">
@@ -278,17 +280,16 @@ export const LessonAcademy: React.FC<LessonAcademyProps> = ({ onEarnElo }) => {
           <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3.5 text-xs text-amber-900 dark:text-amber-200 leading-relaxed flex items-start gap-2.5">
             <span className="text-base shrink-0">💡</span>
             <div>
-              <strong className="font-semibold block mb-0.5">Luke&apos;s Plain English Analogy:</strong>
+              <strong className="font-semibold block mb-0.5">Luke&apos;s Plain-English Analogy:</strong>
               {activeLesson.analogy}
             </div>
           </div>
 
-          {/* Lesson Instructions */}
           <p className="text-xs text-stone-700 dark:text-stone-300 leading-relaxed">
             {activeLesson.introText}
           </p>
 
-          {/* Interactive Chessboard */}
+          {/* Interactive Chessboard with Visual Arrows */}
           <div className="max-w-[420px] mx-auto">
             <ChessBoard
               game={game}
@@ -296,6 +297,7 @@ export const LessonAcademy: React.FC<LessonAcademyProps> = ({ onEarnElo }) => {
               isPlayerTurn={feedbackStatus !== 'success'}
               playerColor={activeLesson.playerColor}
               coachVisionEnabled={true}
+              visualArrows={activeLesson.visualArrows}
             />
           </div>
 
@@ -323,7 +325,7 @@ export const LessonAcademy: React.FC<LessonAcademyProps> = ({ onEarnElo }) => {
 
           {feedbackStatus === 'incorrect' && (
             <div className="bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-xl p-3 text-rose-800 dark:text-rose-200 text-xs flex items-center gap-2 animate-shake">
-              <span>Not quite that one! Try again or click &quot;Need a Clue?&quot; below.</span>
+              <span>Not quite that move! Give it another try or check Luke&apos;s clue below.</span>
             </div>
           )}
 

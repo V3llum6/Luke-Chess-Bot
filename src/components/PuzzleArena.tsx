@@ -21,9 +21,10 @@ const PUZZLES: TacticalPuzzle[] = [
     fen: '6k1/5ppp/8/8/8/8/8/R3K3 w - - 0 1',
     playerColor: 'w',
     solutionSan: ['Ra8#'],
-    lukeClue: 'Slide your Rook all the way to the 8th rank. The pawns block the king from stepping forward!',
+    lukeClue: 'Slide your Rook all the way to the 8th rank. The pawns block the King from stepping forward!',
     explanation:
       'This is the famous Back-Rank Checkmate! When pawns are not pushed to create an escape window (called "luft"), rooks can end the game instantly.',
+    visualArrows: [{ from: 'a1', to: 'a8', color: 'rose' }],
   },
   {
     id: 'puzzle-2',
@@ -31,55 +32,69 @@ const PUZZLES: TacticalPuzzle[] = [
     elo: 650,
     tier: 'BEGINNER',
     theme: 'Blunder Defense',
-    prompt: 'Black’s Queen is attacking your knight on c3. Protect the knight with another piece or pawn!',
+    prompt: 'Black’s Queen just lunged forward to e5 and is targeting your undefended Knight on c3. Defend your teammate with an active developing move!',
     fen: 'r1b1kbnr/pppp1ppp/8/4q3/8/2N5/PPP1PPPP/R1BQKBNR w KQkq - 0 1',
     playerColor: 'w',
     solutionSan: ['Nf3', 'd3', 'd4', 'e3', 'e4', 'Bd2'],
-    lukeClue: 'You have multiple safe ways to defend or develop: Nf3 attacks their Queen while defending!',
+    lukeClue: 'Developing your other Knight to f3 attacks Black’s Queen while defending your team!',
     explanation:
-      'Developing Nf3 is optimal: it guards your piece, activates your knight, and attacks the opponent’s exposed Queen!',
+      'Developing Nf3 is the gold standard: it activates a new piece, protects your board, and gains tempo by threatening the enemy Queen!',
+    visualArrows: [{ from: 'g1', to: 'f3', color: 'emerald' }],
   },
   {
     id: 'puzzle-3',
     title: 'The Royal Fork',
-    elo: 850,
-    tier: 'BEGINNER',
+    elo: 950,
+    tier: 'NOVICE',
     theme: 'Knight Tactics',
-    prompt: 'Black’s King and Queen are aligned. Hop your Knight into the crosshairs to fork both of them!',
-    fen: 'r3k2r/ppp2ppp/8/8/3N4/8/PPPq1PPP/R3K2R w KQkq - 0 1',
+    prompt: 'Black’s King (e8) and Queen (c8) are lined up for an L-shaped ambush! Hop your Knight to d6 to deliver check while simultaneously attacking the Queen.',
+    fen: '2q1k2r/ppp2ppp/8/8/4N3/8/PPPP1PPP/R1BQK2R w KQk - 0 1',
     playerColor: 'w',
-    solutionSan: ['Kxd2', 'Nf3'],
-    lukeClue: 'Wait, look at Black’s Queen on d2—she is attacking your king! But she is undefended. Take her with your King!',
+    solutionSan: ['Nd6+'],
+    lukeClue: 'Look at square d6: jumping your Knight from e4 to d6 attacks BOTH the King on e8 and Queen on c8!',
     explanation:
-      'Whenever an opponent places a queen next to your King without protection, remember the King can capture too!',
+      'A true Royal Fork! Because Black must respond to check by moving their King, your Knight captures their Queen (Nxc8) on the very next move.',
+    visualArrows: [
+      { from: 'e4', to: 'd6', color: 'amber' },
+      { from: 'd6', to: 'e8', color: 'rose' },
+      { from: 'd6', to: 'c8', color: 'rose' },
+    ],
   },
   {
     id: 'puzzle-4',
     title: 'The Discovered Pin Attack',
-    elo: 1150,
+    elo: 1350,
     tier: 'INTERMEDIATE',
     theme: 'Discovered Attack',
-    prompt: 'White’s rook on e1 is lined up with Black’s king on e8. Move your bishop on e2 out of the way to deliver a discovered check!',
+    prompt: 'White’s Rook on e1 is aligned with Black’s King on e8, but your Bishop on e2 is in the way. Step your Bishop to b5 to deliver check and unleash the Rook!',
     fen: '4k3/4r3/8/8/8/8/4B3/4R1K1 w - - 0 1',
     playerColor: 'w',
     solutionSan: ['Bb5+', 'Bxh5+'],
-    lukeClue: 'Step your bishop to b5 to deliver check! Black must attend to the check, losing their rook on e7.',
+    lukeClue: 'Step your Bishop to b5 with check! Black is forced to respond to the King threat, leaving their Rook on e7 pinned and doomed.',
     explanation:
-      'Discovered attacks are devastating because the moving piece creates a threat while simultaneously uncovering an attack from the piece behind it!',
+      'Discovered attacks are devastating: the moving piece creates a fresh threat while uncovering an ambush from the piece behind it.',
+    visualArrows: [
+      { from: 'e2', to: 'b5', color: 'emerald' },
+      { from: 'e1', to: 'e7', color: 'rose' },
+    ],
   },
   {
     id: 'puzzle-5',
-    title: 'Master Deflection',
-    elo: 1650,
+    title: 'Master Queen Sacrifice & Deflection',
+    elo: 1750,
     tier: 'MASTER',
-    theme: 'Decoy & Conversion',
-    prompt: 'Black’s rook on f8 guards against checkmate on f7. Deflect the rook or strike the king directly!',
+    theme: 'Decoy & Back-Rank Mate',
+    prompt: 'Black’s Rook on f8 is overworked defending both f7 and the 8th rank. Sacrifice your Queen on f7 to deflect the defender!',
     fen: '5rk1/5ppp/8/8/8/8/5QPP/4R1K1 w - - 0 1',
     playerColor: 'w',
-    solutionSan: ['Qxf7+', 'Re8'],
-    lukeClue: 'Look at the back rank pressure: Re8 forces Black to defend their back rank!',
+    solutionSan: ['Qxf7+'],
+    lukeClue: 'Strike directly: Qxf7+ forces Black’s Rook to capture your Queen (Rxf7), abandoning their back rank for Re8# checkmate!',
     explanation:
-      'High-level tactical mastery involves overloading the defender. Black cannot defend both f7 and the 8th rank at once.',
+      'A master-level deflection sacrifice! Black has no choice but 1... Rxf7, which removes their guard of the back rank, allowing 2. Re8+ Rf8 3. Rxf8# checkmate.',
+    visualArrows: [
+      { from: 'f2', to: 'f7', color: 'rose' },
+      { from: 'e1', to: 'e8', color: 'sky' },
+    ],
   },
 ];
 
@@ -146,13 +161,13 @@ export const PuzzleArena: React.FC<PuzzleArenaProps> = ({ onEarnElo }) => {
             Tactical Training Drills
           </h3>
           <p className="text-xs text-stone-600 dark:text-stone-400">
-            Train your tactical eye across Beginner, Intermediate, and Master brackets.
+            Train your tactical eye across Beginner, Novice, Intermediate, and Master brackets.
           </p>
         </div>
 
         {/* Filter Segmented Control */}
         <div className="flex items-center gap-1 p-1 bg-stone-100 dark:bg-stone-800 rounded-xl">
-          {(['ALL', 'BEGINNER', 'INTERMEDIATE', 'MASTER'] as const).map((tier) => (
+          {(['ALL', 'BEGINNER', 'NOVICE', 'INTERMEDIATE', 'MASTER'] as const).map((tier) => (
             <button
               key={tier}
               onClick={() => {
@@ -166,11 +181,13 @@ export const PuzzleArena: React.FC<PuzzleArenaProps> = ({ onEarnElo }) => {
               }`}
             >
               {tier === 'ALL'
-                ? 'All Elo'
+                ? 'All Drills'
                 : tier === 'BEGINNER'
-                ? 'Beginner (400–999)'
+                ? 'Beginner (<800)'
+                : tier === 'NOVICE'
+                ? 'Novice (800–1200)'
                 : tier === 'INTERMEDIATE'
-                ? 'Intermediate (1000–1599)'
+                ? 'Intermediate (1200–1600)'
                 : 'Master (1600+)'}
             </button>
           ))}
@@ -260,6 +277,7 @@ export const PuzzleArena: React.FC<PuzzleArenaProps> = ({ onEarnElo }) => {
               isPlayerTurn={feedbackStatus !== 'success'}
               playerColor={activePuzzle.playerColor}
               coachVisionEnabled={true}
+              visualArrows={activePuzzle.visualArrows}
             />
           </div>
 

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Eye, Lightbulb, RotateCcw, MessageSquare, Volume2, VolumeX, Sparkles, CheckCircle2, AlertCircle, HelpCircle } from 'lucide-react';
+import { Eye, Lightbulb, RotateCcw, MessageSquare, Volume2, VolumeX, Sparkles, CheckCircle2, AlertCircle, HelpCircle, Volume1 } from 'lucide-react';
 import { ChessPieceIcon } from './ChessPieces.tsx';
 import { CoachFeedback } from '../types.ts';
 import { sounds } from '../audio.ts';
@@ -43,7 +43,13 @@ export const CoachPanel: React.FC<CoachPanelProps> = ({
 }) => {
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [challengeResult, setChallengeResult] = useState<{ isCorrect: boolean; message: string } | null>(null);
-  const [showAsciiBoard, setShowAsciiBoard] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+
+  // Reset challenge option state when feedback text changes
+  React.useEffect(() => {
+    setSelectedOption(null);
+    setChallengeResult(null);
+  }, [feedback.strategicInsight]);
 
   const handleSelectOption = (index: number) => {
     setSelectedOption(index);
@@ -67,6 +73,27 @@ export const CoachPanel: React.FC<CoachPanelProps> = ({
     if (onAnswerChallenge) {
       onAnswerChallenge(isCorrect);
     }
+  };
+
+  const handleSpeakAdvice = () => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+
+    if (isSpeaking) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+    const textToSpeak = `${feedback.theMove}. ${feedback.strategicInsight}. Challenge: ${feedback.microChallenge}`;
+    const utterance = new SpeechSynthesisUtterance(textToSpeak);
+    utterance.rate = 0.95;
+    utterance.pitch = 1.05;
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => setIsSpeaking(false);
+
+    setIsSpeaking(true);
+    window.speechSynthesis.speak(utterance);
   };
 
   return (
@@ -101,14 +128,30 @@ export const CoachPanel: React.FC<CoachPanelProps> = ({
           </div>
         </div>
 
-        {/* Audio Mute/Unmute */}
-        <button
-          onClick={onToggleSound}
-          className="p-2 text-stone-500 hover:text-stone-900 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-xl transition-colors"
-          title={soundEnabled ? 'Mute sound effects' : 'Enable sound effects'}
-        >
-          {soundEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
-        </button>
+        {/* Audio & Voice Controls */}
+        <div className="flex items-center gap-1">
+          {/* Read Aloud Button */}
+          <button
+            onClick={handleSpeakAdvice}
+            className={`p-2 rounded-xl transition-colors ${
+              isSpeaking
+                ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 animate-pulse'
+                : 'text-stone-500 hover:text-stone-900 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800'
+            }`}
+            title={isSpeaking ? 'Stop voice reading' : 'Read Luke’s advice aloud'}
+          >
+            <Volume1 className="w-5 h-5" />
+          </button>
+
+          {/* Sound FX Toggle */}
+          <button
+            onClick={onToggleSound}
+            className="p-2 text-stone-500 hover:text-stone-900 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-xl transition-colors"
+            title={soundEnabled ? 'Mute sound effects' : 'Enable sound effects'}
+          >
+            {soundEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+          </button>
+        </div>
       </div>
 
       {/* Structured 3-Part Feedback Card */}
@@ -137,11 +180,13 @@ export const CoachPanel: React.FC<CoachPanelProps> = ({
 
           {/* 2. The Strategic Insight (One Advice Rule with Analogy) */}
           <div className="bg-amber-50/80 dark:bg-amber-950/20 rounded-xl p-3.5 border border-amber-200/80 dark:border-amber-900/40 space-y-1">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-              <span className="text-[11px] font-bold uppercase tracking-wider text-amber-800 dark:text-amber-400">
-                2. Strategic Insight (The One Rule)
-              </span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                <span className="text-[11px] font-bold uppercase tracking-wider text-amber-800 dark:text-amber-400">
+                  2. Strategic Insight (The One Rule)
+                </span>
+              </div>
             </div>
             <p className="text-xs text-stone-800 dark:text-stone-200 leading-relaxed">
               {feedback.strategicInsight}
@@ -220,7 +265,7 @@ export const CoachPanel: React.FC<CoachPanelProps> = ({
             <div className="flex -space-x-1 overflow-x-auto max-w-[140px]">
               {capturedByWhite.map((p, i) => (
                 <div key={i} className="w-5 h-5">
-                  <ChessPieceIcon type={p.toLowerCase() as any} color="b" />
+                  <ChessPieceIcon type={p.toLowerCase() as any} color={playerColor === 'w' ? 'b' : 'w'} />
                 </div>
               ))}
             </div>
@@ -235,7 +280,7 @@ export const CoachPanel: React.FC<CoachPanelProps> = ({
             <div className="flex -space-x-1 overflow-x-auto max-w-[140px]">
               {capturedByBlack.map((p, i) => (
                 <div key={i} className="w-5 h-5">
-                  <ChessPieceIcon type={p.toLowerCase() as any} color="w" />
+                  <ChessPieceIcon type={p.toLowerCase() as any} color={playerColor} />
                 </div>
               ))}
             </div>
