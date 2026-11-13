@@ -112,7 +112,7 @@ Respond as Coach Luke in JSON format with these exact keys:
 - visualArrows: Array of 1-2 objects each with 'from' (square e.g. "e2") and 'to' (square e.g. "e4") and 'color' ("amber", "emerald", "rose", "sky") indicating the move or threat.`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
+      model: 'gemini-4-hydrogen',
       contents: prompt,
       config: {
         systemInstruction: LUKE_SYSTEM_INSTRUCTION,
@@ -176,7 +176,7 @@ Return JSON with keys:
 - correctOptionIndex: 0, 1, or 2.`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
+      model: 'gemini-4-hydrogen',
       contents: prompt,
       config: {
         systemInstruction: LUKE_SYSTEM_INSTRUCTION,
@@ -245,7 +245,7 @@ Strictly enforce:
 - End with 1 encouraging micro-check question to test active recall.`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
+      model: 'gemini-4-hydrogen',
       contents: prompt,
       config: {
         systemInstruction: LUKE_SYSTEM_INSTRUCTION,
@@ -274,20 +274,23 @@ app.post('/api/coach/game-review', async (req, res) => {
     if (!ai) {
       return res.json({
         accuracy: '80%',
-        summary: `Great effort! You played with strong team spirit, controlled the high ground, and pushed your forces forward with courage.`,
+        summary:
+          result === 'ongoing'
+            ? 'You are off to an encouraging start! Keep defending your pieces and watching how both armies coordinate around the center.'
+            : 'Great effort! You played with strong team spirit, controlled the high ground, and pushed your forces forward with courage.',
         strengths: ['Active piece mobility onto the field', 'Courage to contest the center'],
         areasToImprove: ['Use the 3-second pause to scan for undefended teammates', 'Castle 2-3 moves earlier for king shelter'],
         lukePraise: `Every game you play is an investment in your strategic intuition!`,
       });
     }
 
-    const prompt = `Review this beginner chess game:
+    const prompt = `Review this ${result === 'ongoing' ? 'in-progress (mid-game check-in)' : 'completed'} beginner chess game:
 Student color: ${userColor}
 Result: ${result}
 Student Elo: ~${eloNum}
 Moves: ${(moveList || []).join(' ')}
 
-Provide Coach Luke's game review formatted in plain JSON with these exact keys:
+Provide Coach Luke's ${result === 'ongoing' ? 'mid-game check-in review' : 'game review'} formatted in plain JSON with these exact keys:
 - accuracy: estimated percentage string (e.g. "78%")
 - summary: 2 friendly sentences summarizing the student's play with real-world analogies.
 - strengths: array of 2 short positive habits observed.
@@ -295,7 +298,7 @@ Provide Coach Luke's game review formatted in plain JSON with these exact keys:
 - lukePraise: 1 inspiring takeaway quote from Luke.`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
+      model: 'gemini-4-hydrogen',
       contents: prompt,
       config: {
         systemInstruction: LUKE_SYSTEM_INSTRUCTION,

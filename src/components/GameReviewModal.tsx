@@ -5,7 +5,7 @@ import confetti from 'canvas-confetti';
 interface GameReviewModalProps {
   isOpen: boolean;
   onClose: () => void;
-  result: 'win' | 'loss' | 'draw';
+  result: 'win' | 'loss' | 'draw' | 'ongoing';
   moveHistory: string[];
   userElo: number;
   userColor: 'w' | 'b';
@@ -70,7 +70,7 @@ export const GameReviewModal: React.FC<GameReviewModalProps> = ({
 
   if (!isOpen) return null;
 
-  const eloDelta = result === 'win' ? 15 : result === 'draw' ? 5 : 3;
+  const eloDelta = result === 'win' ? 15 : result === 'draw' ? 5 : result === 'loss' ? 3 : 0;
 
   return (
     <div className="fixed inset-0 z-50 bg-black/55 backdrop-blur-xs flex items-center justify-center p-4">
@@ -93,12 +93,20 @@ export const GameReviewModal: React.FC<GameReviewModalProps> = ({
               ? 'Victory! Outstanding Game!'
               : result === 'draw'
               ? 'A Well-Fought Draw!'
+              : result === 'ongoing'
+              ? 'Mid-Game Check-In'
               : 'Good Game! Great Learning Opportunity!'}
           </h3>
           <div className="flex items-center justify-center gap-2 mt-2">
-            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300">
-              +{eloDelta} Elo Rating Points!
-            </span>
+            {result === 'ongoing' ? (
+              <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300">
+                Match in Progress
+              </span>
+            ) : (
+              <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300">
+                +{eloDelta} Elo Rating Points!
+              </span>
+            )}
             <span className="text-xs text-stone-400">·</span>
             <span className="text-xs font-medium text-stone-500 dark:text-stone-400">
               {moveHistory.length} Moves Played

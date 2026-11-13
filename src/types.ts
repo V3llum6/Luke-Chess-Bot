@@ -19,7 +19,8 @@ export const ELO_MILESTONES: EloMilestone[] = [
     maxElo: 799,
     title: 'Beginner (< 800 Elo)',
     subtitle: 'Piece Safety & Basic Movement',
-    description: 'Mastering basic piece movements, eliminating hanging pieces (the 3-second safety scan), 1-step captures, and claiming the central high ground.',
+    description:
+      'Mastering basic piece movements, eliminating hanging pieces (the 3-second safety scan), 1-step captures, and claiming the central high ground.',
     coreSkills: [
       'Basic piece safety: Never leave a piece undefended ("hanging")',
       'The 3-Second Scan before letting go of a piece',
@@ -34,7 +35,8 @@ export const ELO_MILESTONES: EloMilestone[] = [
     maxElo: 1199,
     title: 'Novice (800 – 1200 Elo)',
     subtitle: 'Tactical Motifs & Opening Discipline',
-    description: 'Spotting basic tactical patterns (forks, pins, skewers), prioritizing early King castling, and opening discipline: never move the same piece twice before developing your team.',
+    description:
+      'Spotting basic tactical patterns (forks, pins, skewers), prioritizing early King castling, and opening discipline: never move the same piece twice before developing your team.',
     coreSkills: [
       'Basic tactical motifs: Knight forks, Bishop pins, Rook skewers',
       'King safety: Castle before move 10',
@@ -49,7 +51,8 @@ export const ELO_MILESTONES: EloMilestone[] = [
     maxElo: 1599,
     title: 'Intermediate (1200 – 1600 Elo)',
     subtitle: 'Pawn Structures & Multi-Move Planning',
-    description: 'Analyzing pawn structures, targeting weak color squares and outposts, planning 2–3 moves ahead, and converting basic endgames (King + Rook checkmate).',
+    description:
+      'Analyzing pawn structures, targeting weak color squares and outposts, planning 2–3 moves ahead, and converting basic endgames (King + Rook checkmate).',
     coreSkills: [
       'Pawn structure integrity (pawn chains vs isolated pawns)',
       'Exploiting outposts and weak backward pawns',
@@ -64,7 +67,8 @@ export const ELO_MILESTONES: EloMilestone[] = [
     maxElo: 2300,
     title: 'Advanced / Master (1600+ Elo)',
     subtitle: 'Prophylaxis & Positional Nuance',
-    description: 'Deep positional trade-offs, pawn levers, prophylactic thinking ("What does my opponent plan?"), and converting subtle technical advantages.',
+    description:
+      'Deep positional trade-offs, pawn levers, prophylactic thinking ("What does my opponent plan?"), and converting subtle technical advantages.',
     coreSkills: [
       'Prophylactic defense: Preventing opponent threats before they appear',
       'Pawn levers and file openings at critical junctures',
@@ -122,6 +126,26 @@ export interface VisualArrow {
   from: string;
   to: string;
   color?: 'amber' | 'emerald' | 'rose' | 'sky';
+}
+
+export type MoveQuality = 'brilliant' | 'great' | 'good' | 'inaccuracy' | 'mistake' | 'blunder';
+
+export interface MoveRecord {
+  san: string;
+  english: string;
+  fen: string;
+  from: string;
+  to: string;
+  color: 'w' | 'b';
+  captured?: string;
+  quality?: MoveQuality;
+}
+
+export interface OpeningInfo {
+  name: string;
+  nickname: string;
+  summary: string;
+  tip: string;
 }
 
 export interface CoachFeedback {

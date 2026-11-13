@@ -166,13 +166,19 @@ export const PuzzleArena: React.FC<PuzzleArenaProps> = ({ onEarnElo }) => {
         </div>
 
         {/* Filter Segmented Control */}
-        <div className="flex items-center gap-1 p-1 bg-stone-100 dark:bg-stone-800 rounded-xl">
+        <div className="flex flex-wrap items-center gap-1 p-1 bg-stone-100 dark:bg-stone-800 rounded-xl">
           {(['ALL', 'BEGINNER', 'NOVICE', 'INTERMEDIATE', 'MASTER'] as const).map((tier) => (
             <button
               key={tier}
               onClick={() => {
                 setActiveTier(tier);
                 setSelectedPuzzleIdx(0);
+                const nextList = tier === 'ALL' ? PUZZLES : PUZZLES.filter((p) => p.tier === tier);
+                if (nextList.length > 0) {
+                  setGame(new Chess(nextList[0].fen));
+                }
+                setFeedbackStatus('idle');
+                setShowHint(false);
               }}
               className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors whitespace-nowrap shrink-0 ${
                 activeTier === tier
@@ -283,14 +289,25 @@ export const PuzzleArena: React.FC<PuzzleArenaProps> = ({ onEarnElo }) => {
 
           {/* Feedback & Result */}
           {feedbackStatus === 'success' && (
-            <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl p-4 text-emerald-900 dark:text-emerald-200 animate-fade-in">
-              <div className="flex items-center gap-2 mb-1">
-                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-                <h5 className="text-sm font-bold">Solved! +15 Elo Points Earned!</h5>
+            <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl p-4 text-emerald-900 dark:text-emerald-200 animate-fade-in space-y-3">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                  <h5 className="text-sm font-bold">Solved! +15 Elo Points Earned!</h5>
+                </div>
+                <p className="text-xs text-emerald-800 dark:text-emerald-300 leading-relaxed">
+                  {activePuzzle.explanation}
+                </p>
               </div>
-              <p className="text-xs text-emerald-800 dark:text-emerald-300 leading-relaxed">
-                {activePuzzle.explanation}
-              </p>
+              {filteredPuzzles.length > 1 && (
+                <button
+                  onClick={() => handleSelectPuzzle((selectedPuzzleIdx + 1) % filteredPuzzles.length)}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-colors shadow-xs"
+                >
+                  <span>Next Drill</span>
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              )}
             </div>
           )}
 

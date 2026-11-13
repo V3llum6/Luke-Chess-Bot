@@ -1,7 +1,21 @@
 import React, { useState } from 'react';
-import { Eye, Lightbulb, RotateCcw, MessageSquare, Volume2, VolumeX, Sparkles, CheckCircle2, AlertCircle, HelpCircle, Volume1 } from 'lucide-react';
+import {
+  Eye,
+  Lightbulb,
+  RotateCcw,
+  MessageSquare,
+  Volume2,
+  VolumeX,
+  Sparkles,
+  CheckCircle2,
+  HelpCircle,
+  Volume1,
+  ShieldAlert,
+  ShieldCheck,
+  Compass,
+} from 'lucide-react';
 import { ChessPieceIcon } from './ChessPieces.tsx';
-import { CoachFeedback } from '../types.ts';
+import { CoachFeedback, OpeningInfo } from '../types.ts';
 import { sounds } from '../audio.ts';
 
 interface CoachPanelProps {
@@ -11,12 +25,18 @@ interface CoachPanelProps {
   playerColor: 'w' | 'b';
   coachVisionEnabled: boolean;
   onToggleCoachVision: () => void;
+  safetyGuardEnabled: boolean;
+  onToggleSafetyGuard: () => void;
+  pendingRiskyMove?: { from: string; to: string; warning: string; san: string } | null;
+  onConfirmRiskyMove?: () => void;
+  onCancelRiskyMove?: () => void;
+  detectedOpening?: OpeningInfo | null;
   onRequestHint: () => void;
   onTakeback: () => void;
   onOpenAskModal: () => void;
   canTakeback: boolean;
-  capturedByWhite: string[];
-  capturedByBlack: string[];
+  capturedByUser: string[];
+  capturedByLuke: string[];
   soundEnabled: boolean;
   onToggleSound: () => void;
   coachLevelName: string;
@@ -30,12 +50,18 @@ export const CoachPanel: React.FC<CoachPanelProps> = ({
   playerColor,
   coachVisionEnabled,
   onToggleCoachVision,
+  safetyGuardEnabled,
+  onToggleSafetyGuard,
+  pendingRiskyMove,
+  onConfirmRiskyMove,
+  onCancelRiskyMove,
+  detectedOpening,
   onRequestHint,
   onTakeback,
   onOpenAskModal,
   canTakeback,
-  capturedByWhite,
-  capturedByBlack,
+  capturedByUser,
+  capturedByLuke,
   soundEnabled,
   onToggleSound,
   coachLevelName,
@@ -45,7 +71,6 @@ export const CoachPanel: React.FC<CoachPanelProps> = ({
   const [challengeResult, setChallengeResult] = useState<{ isCorrect: boolean; message: string } | null>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
 
-  // Reset challenge option state when feedback text changes
   React.useEffect(() => {
     setSelectedOption(null);
     setChallengeResult(null);
@@ -98,7 +123,7 @@ export const CoachPanel: React.FC<CoachPanelProps> = ({
 
   return (
     <div className="flex flex-col bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl p-4 sm:p-5 shadow-xs space-y-4">
-      {/* Top Header: Coach Luke Info & Controls */}
+      {/* Top Header: Coach Luke Info & Audio/Safety Controls */}
       <div className="flex items-center justify-between pb-3 border-b border-stone-200 dark:border-stone-800">
         <div className="flex items-center gap-3">
           <div className="relative w-12 h-12 rounded-full overflow-hidden ring-2 ring-amber-500/40 shrink-0 bg-stone-200 dark:bg-stone-800">
@@ -128,9 +153,24 @@ export const CoachPanel: React.FC<CoachPanelProps> = ({
           </div>
         </div>
 
-        {/* Audio & Voice Controls */}
+        {/* Audio, Voice & Safety Guard Quick Controls */}
         <div className="flex items-center gap-1">
-          {/* Read Aloud Button */}
+          <button
+            onClick={onToggleSafetyGuard}
+            className={`p-2 rounded-xl transition-colors ${
+              safetyGuardEnabled
+                ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400'
+                : 'text-stone-400 hover:text-stone-800 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800'
+            }`}
+            title={
+              safetyGuardEnabled
+                ? 'Beginner Safety Guard ON: Luke warns you before obvious blunders'
+                : 'Beginner Safety Guard OFF'
+            }
+          >
+            <ShieldCheck className="w-5 h-5" />
+          </button>
+
           <button
             onClick={handleSpeakAdvice}
             className={`p-2 rounded-xl transition-colors ${
@@ -143,7 +183,6 @@ export const CoachPanel: React.FC<CoachPanelProps> = ({
             <Volume1 className="w-5 h-5" />
           </button>
 
-          {/* Sound FX Toggle */}
           <button
             onClick={onToggleSound}
             className="p-2 text-stone-500 hover:text-stone-900 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-xl transition-colors"
@@ -153,6 +192,51 @@ export const CoachPanel: React.FC<CoachPanelProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Inline Blunder / Safety Guard Prompt */}
+      {pendingRiskyMove && (
+        <div className="p-4 bg-rose-50 dark:bg-rose-950/30 border border-rose-300 dark:border-rose-800 rounded-xl space-y-2.5 animate-fade-in">
+          <div className="flex items-center gap-2 text-rose-800 dark:text-rose-300 font-bold text-xs">
+            <ShieldAlert className="w-4 h-4 shrink-0" />
+            <span>Beginner Safety Pause: Are you sure about {pendingRiskyMove.san}?</span>
+          </div>
+          <p className="text-xs text-rose-900 dark:text-rose-200 leading-relaxed">
+            {pendingRiskyMove.warning}
+          </p>
+          <div className="flex items-center gap-2 pt-1">
+            <button
+              onClick={onCancelRiskyMove}
+              className="flex-1 py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg transition-colors"
+            >
+              Pick Safer Move
+            </button>
+            <button
+              onClick={onConfirmRiskyMove}
+              className="py-2 px-3 bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-300 border border-stone-200 dark:border-stone-700 hover:bg-stone-100 text-xs font-medium rounded-lg transition-colors"
+            >
+              Play Anyway
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Opening Explorer Pill */}
+      {detectedOpening && (
+        <div className="bg-sky-50/70 dark:bg-sky-950/20 border border-sky-200/80 dark:border-sky-900/40 rounded-xl p-3 space-y-1">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5 text-sky-800 dark:text-sky-300 text-xs font-bold">
+              <Compass className="w-3.5 h-3.5 shrink-0" />
+              <span>Opening: {detectedOpening.name}</span>
+            </div>
+            <span className="text-[10px] font-medium text-sky-700 dark:text-sky-400">
+              {detectedOpening.nickname}
+            </span>
+          </div>
+          <p className="text-[11px] text-sky-900/90 dark:text-sky-200 leading-relaxed">
+            {detectedOpening.summary} <strong>Tip:</strong> {detectedOpening.tip}
+          </p>
+        </div>
+      )}
 
       {/* Structured 3-Part Feedback Card */}
       {isThinking ? (
@@ -180,13 +264,11 @@ export const CoachPanel: React.FC<CoachPanelProps> = ({
 
           {/* 2. The Strategic Insight (One Advice Rule with Analogy) */}
           <div className="bg-amber-50/80 dark:bg-amber-950/20 rounded-xl p-3.5 border border-amber-200/80 dark:border-amber-900/40 space-y-1">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                <span className="text-[11px] font-bold uppercase tracking-wider text-amber-800 dark:text-amber-400">
-                  2. Strategic Insight (The One Rule)
-                </span>
-              </div>
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+              <span className="text-[11px] font-bold uppercase tracking-wider text-amber-800 dark:text-amber-400">
+                2. Strategic Insight (The One Rule)
+              </span>
             </div>
             <p className="text-xs text-stone-800 dark:text-stone-200 leading-relaxed">
               {feedback.strategicInsight}
@@ -259,11 +341,11 @@ export const CoachPanel: React.FC<CoachPanelProps> = ({
       <div className="flex items-center justify-between py-1 text-xs text-stone-500 dark:text-stone-400 border-t border-b border-stone-200 dark:border-stone-800">
         <div className="flex items-center gap-1">
           <span className="text-[11px] font-medium mr-1">Captured by You:</span>
-          {capturedByWhite.length === 0 ? (
+          {capturedByUser.length === 0 ? (
             <span className="text-stone-400 dark:text-stone-600 italic">None yet</span>
           ) : (
             <div className="flex -space-x-1 overflow-x-auto max-w-[140px]">
-              {capturedByWhite.map((p, i) => (
+              {capturedByUser.map((p, i) => (
                 <div key={i} className="w-5 h-5">
                   <ChessPieceIcon type={p.toLowerCase() as any} color={playerColor === 'w' ? 'b' : 'w'} />
                 </div>
@@ -274,11 +356,11 @@ export const CoachPanel: React.FC<CoachPanelProps> = ({
 
         <div className="flex items-center gap-1">
           <span className="text-[11px] font-medium mr-1">Captured by Luke:</span>
-          {capturedByBlack.length === 0 ? (
+          {capturedByLuke.length === 0 ? (
             <span className="text-stone-400 dark:text-stone-600 italic">None yet</span>
           ) : (
             <div className="flex -space-x-1 overflow-x-auto max-w-[140px]">
-              {capturedByBlack.map((p, i) => (
+              {capturedByLuke.map((p, i) => (
                 <div key={i} className="w-5 h-5">
                   <ChessPieceIcon type={p.toLowerCase() as any} color={playerColor} />
                 </div>
@@ -297,7 +379,7 @@ export const CoachPanel: React.FC<CoachPanelProps> = ({
               ? 'bg-emerald-600 text-white border-emerald-700 shadow-xs'
               : 'bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-200 border-stone-200 dark:border-stone-700 hover:bg-stone-100 dark:hover:bg-stone-700/60'
           }`}
-          title="Highlight center control & pieces under threat"
+          title="Highlight center control, safe vs risky squares, & pieces under threat"
         >
           <Eye className="w-4 h-4 shrink-0" />
           <span>{coachVisionEnabled ? 'Vision ON' : 'Coach Vision'}</span>

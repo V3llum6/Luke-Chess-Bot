@@ -3,6 +3,7 @@ import { Chess, Square, PieceSymbol, Color } from 'chess.js';
 import { ChessPieceIcon } from './ChessPieces.tsx';
 import { sounds } from '../audio.ts';
 import { VisualArrow } from '../types.ts';
+import { checkMoveSafety } from '../engine/lukeEngine.ts';
 
 interface ChessBoardProps {
   game: Chess;
@@ -11,9 +12,12 @@ interface ChessBoardProps {
   playerColor?: 'w' | 'b';
   lastMove?: { from: Square; to: Square } | null;
   coachVisionEnabled?: boolean;
+  safetyGuardEnabled?: boolean;
+  onRiskyMoveIntercept?: (info: { from: Square; to: Square; warning: string; san: string }) => void;
   hintHighlight?: { from: Square; to?: Square } | null;
   visualArrows?: VisualArrow[];
   interactive?: boolean;
+  advantageInfo?: { label: string; whitePercent: number } | null;
 }
 
 const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
@@ -36,9 +40,12 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
   playerColor = 'w',
   lastMove,
   coachVisionEnabled = false,
+  safetyGuardEnabled = false,
+  onRiskyMoveIntercept,
   hintHighlight,
   visualArrows = [],
   interactive = true,
+  advantageInfo = null,
 }) => {
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null);
   const [dragOverSquare, setDragOverSquare] = useState<Square | null>(null);
@@ -68,16 +75,30 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
     };
   }, [game]);
 
-  // Calculate legal destination moves for the selected piece
+  // Calculate legal destination moves for the selected piece (with optional Coach Vision safety check)
   const legalMovesForSelected = React.useMemo(() => {
     if (!selectedSquare) return [];
     try {
       const moves = game.moves({ square: selectedSquare, verbose: true });
-      return moves.map((m) => ({ to: m.to, isCapture: Boolean(m.captured) }));
+      const oppColor: Color = playerColor === 'w' ? 'b' : 'w';
+
+      return moves.map((m) => {
+        let isUnsafeDest = false;
+        if (coachVisionEnabled) {
+          const sim = new Chess(game.fen());
+          try {
+            sim.move({ from: m.from, to: m.to, promotion: m.promotion });
+            if (sim.isAttacked(m.to, oppColor) && !sim.isAttacked(m.to, playerColor)) {
+              isUnsafeDest = true;
+            }
+          } catch {}
+        }
+        return { to: m.to, isCapture: Boolean(m.captured), isUnsafeDest };
+      });
     } catch {
       return [];
     }
-  }, [game, selectedSquare]);
+  }, [game, selectedSquare, coachVisionEnabled, playerColor]);
 
   // Find King square in check
   const kingInCheckSquare = React.useMemo(() => {
@@ -97,32 +118,26 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
     return null;
   }, [game]);
 
-  // Coach Vision: Find player's undefended pieces
-  const undefendedSquares = React.useMemo(() => {
+  // Coach Vision: Find player's pieces under attack
+  const threatenedSquares = React.useMemo(() => {
     if (!coachVisionEnabled) return new Set<Square>();
-    const undefended = new Set<Square>();
+    const threatened = new Set<Square>();
     const board = game.board();
-    const playerPieces: { square: Square; type: PieceSymbol }[] = [];
+    const opponentColor: Color = playerColor === 'w' ? 'b' : 'w';
 
     for (let r = 0; r < 8; r++) {
       for (let c = 0; c < 8; c++) {
         const piece = board[r][c];
         if (piece && piece.color === playerColor && piece.type !== 'k') {
           const sq = `${FILES[c]}${RANKS[r]}` as Square;
-          playerPieces.push({ square: sq, type: piece.type });
+          if (game.isAttacked(sq, opponentColor)) {
+            threatened.add(sq);
+          }
         }
       }
     }
 
-    playerPieces.forEach((p) => {
-      const opponentColor: Color = playerColor === 'w' ? 'b' : 'w';
-      const isUnderThreat = game.isAttacked(p.square, opponentColor);
-      if (isUnderThreat) {
-        undefended.add(p.square);
-      }
-    });
-
-    return undefended;
+    return threatened;
   }, [game, coachVisionEnabled, playerColor]);
 
   const handleSquareClick = (square: Square) => {
@@ -160,6 +175,22 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
     if (isPromotion) {
       setPendingPromotion({ from, to });
       return;
+    }
+
+    // Beginner Safety Guard check before committing
+    if (safetyGuardEnabled && onRiskyMoveIntercept) {
+      const safety = checkMoveSafety(game, from, to);
+      if (safety.isRisky) {
+        sounds.playHint();
+        setSelectedSquare(null);
+        onRiskyMoveIntercept({
+          from,
+          to,
+          warning: safety.warningText,
+          san: safety.san,
+        });
+        return;
+      }
     }
 
     executeMove(from, to);
@@ -238,7 +269,6 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
     const fromSquare = e.dataTransfer.getData('text/plain') as Square;
     if (!fromSquare || fromSquare === toSquare) return;
 
-    // Check if legal
     const moves = game.moves({ square: fromSquare, verbose: true });
     const isLegal = moves.some((m) => m.to === toSquare);
     if (isLegal) {
@@ -249,7 +279,6 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
   const ranksDisplay = playerColor === 'b' ? [...RANKS].reverse() : RANKS;
   const filesDisplay = playerColor === 'b' ? [...FILES].reverse() : FILES;
 
-  // Coordinate helper for visual arrows
   const getSquareCoordinates = (sq: string) => {
     if (sq.length < 2) return null;
     const f = sq[0];
@@ -265,29 +294,47 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
 
   return (
     <div className="relative select-none touch-manipulation max-w-[560px] w-full mx-auto">
-      {/* Material Advantage Bar */}
-      <div className="flex items-center justify-between px-3 py-1.5 mb-1.5 text-xs text-stone-600 dark:text-stone-300">
-        <div className="flex items-center gap-1.5">
-          <span className="font-semibold text-stone-800 dark:text-stone-200">
-            {playerColor === 'w' ? 'White (You)' : 'White (Luke)'}
-          </span>
-          {materialBalance.diff > 0 && (
-            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-200 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200">
-              +{materialBalance.diff}
+      {/* Top Status Strip: Material Counter + "Who's Winning?" Meter */}
+      <div className="flex flex-col gap-1.5 px-2 mb-2">
+        <div className="flex items-center justify-between text-xs text-stone-600 dark:text-stone-300">
+          <div className="flex items-center gap-1.5">
+            <span className="font-semibold text-stone-800 dark:text-stone-200">
+              {playerColor === 'w' ? 'White (You)' : 'White (Luke)'}
+            </span>
+            {materialBalance.diff > 0 && (
+              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-200 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200 tabular-nums">
+                +{materialBalance.diff}
+              </span>
+            )}
+          </div>
+
+          {advantageInfo && (
+            <span className="text-[11px] font-semibold text-stone-500 dark:text-stone-400">
+              {advantageInfo.label}
             </span>
           )}
+
+          <div className="flex items-center gap-1.5">
+            {materialBalance.diff < 0 && (
+              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-200 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200 tabular-nums">
+                +{Math.abs(materialBalance.diff)}
+              </span>
+            )}
+            <span className="font-semibold text-stone-800 dark:text-stone-200">
+              {playerColor === 'b' ? 'Black (You)' : 'Black (Luke)'}
+            </span>
+          </div>
         </div>
 
-        <div className="flex items-center gap-1.5">
-          {materialBalance.diff < 0 && (
-            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-200 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200">
-              +{Math.abs(materialBalance.diff)}
-            </span>
-          )}
-          <span className="font-semibold text-stone-800 dark:text-stone-200">
-            {playerColor === 'b' ? 'Black (You)' : 'Black (Luke)'}
-          </span>
-        </div>
+        {/* Clean Tug-of-War Advantage Meter */}
+        {advantageInfo && (
+          <div className="w-full h-1.5 bg-stone-800 dark:bg-stone-700 rounded-full overflow-hidden flex border border-stone-300 dark:border-stone-700">
+            <div
+              className="h-full bg-stone-100 dark:bg-stone-200 transition-all duration-300"
+              style={{ width: `${advantageInfo.whitePercent}%` }}
+            />
+          </div>
+        )}
       </div>
 
       {/* Board Outer Wooden Frame */}
@@ -304,7 +351,7 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
               const isLastMoveTo = lastMove?.to === square;
               const isKingCheck = kingInCheckSquare === square;
               const isCenter = CENTER_SQUARES.includes(square);
-              const isUndefendedWarning = undefendedSquares.has(square);
+              const isThreatened = threatenedSquares.has(square);
               const isHintSource = hintHighlight?.from === square;
               const isHintTarget = hintHighlight?.to === square;
               const isDragTarget = dragOverSquare === square;
@@ -352,13 +399,13 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
                   {/* Coach Vision: Center squares indicator ("The High Ground") */}
                   {coachVisionEnabled && isCenter && (
                     <div
-                      className="absolute inset-1.5 border border-dashed border-emerald-600/40 rounded-sm pointer-events-none"
+                      className="absolute inset-1.5 border border-dashed border-emerald-600/45 rounded-sm pointer-events-none"
                       title="Central High Ground (e4, d4, e5, d5)"
                     />
                   )}
 
-                  {/* Coach Vision: Threat / undefended warning */}
-                  {isUndefendedWarning && (
+                  {/* Coach Vision: Threatened piece warning */}
+                  {isThreatened && (
                     <div
                       className="absolute inset-0.5 border-2 border-rose-500/80 rounded-md animate-pulse pointer-events-none"
                       title="Caution: This teammate is under attack!"
@@ -390,9 +437,20 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
                     </div>
                   )}
 
-                  {/* Legal Move Indicators */}
+                  {/* Legal Move Indicators (Safe vs Risky when Coach Vision ON) */}
                   {legalDest && !legalDest.isCapture && (
-                    <div className="absolute w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full bg-emerald-600/70 pointer-events-none shadow-sm" />
+                    <div
+                      className={`absolute w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full pointer-events-none shadow-sm ${
+                        legalDest.isUnsafeDest
+                          ? 'bg-amber-500/80 ring-2 ring-rose-600'
+                          : 'bg-emerald-600/75'
+                      }`}
+                      title={
+                        legalDest.isUnsafeDest
+                          ? 'Caution: This square is guarded by an opponent piece!'
+                          : 'Safe legal square'
+                      }
+                    />
                   )}
                   {legalDest && legalDest.isCapture && (
                     <div className="absolute inset-1 rounded-full border-4 border-rose-500/80 pointer-events-none shadow-sm" />
@@ -402,7 +460,7 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
             })
           )}
 
-          {/* SVG Visual Arrows Layer */}
+          {/* SVG Visual Arrows Layer (Used in Academy & Tactical Drills) */}
           {visualArrows.length > 0 && (
             <svg
               className="absolute inset-0 w-full h-full pointer-events-none z-20"
